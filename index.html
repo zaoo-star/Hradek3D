@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hrádek Bučovice – 3D prohlídka</title>
+<meta name="description" content="Interaktivní 3D rekonstrukce středověkého hrádku na Kalvárii v Bučovicích. Prohlídka s průvodcem, procházka a podoba hradiska dnes.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="cs_CZ">
+<meta property="og:site_name" content="Bučovice">
+<meta property="og:url" content="https://zaoo-star.github.io/Hradek3D/">
+<meta property="og:title" content="Hrádek Bučovice ve 3D">
+<meta property="og:description" content="Projdi si středověké hradisko na Kalvárii tak, jak mohlo vypadat kolem roku 1300. Funguje i v mobilu.">
+<meta property="og:image" content="https://zaoo-star.github.io/Hradek3D/hradek-og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Rekonstrukce dřevohlinitého hrádku s palisádou a příkopem na kopci nad Bučovicemi">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --panel:rgba(244,238,224,.93);
+  --ink:#2b2216;
+  --muted:#6a5a44;
+  --accent:#2f5236;
+  --accent-ink:#f4efe2;
+  --ochre:#a8762a;
+  --line:rgba(60,42,20,.16);
+  --shadow:0 10px 30px rgba(40,25,10,.22);
+  --bg:#c9d6dc;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --panel:rgba(30,26,20,.92);--ink:#efe6d4;--muted:#b8a789;--accent:#7fae84;--accent-ink:#13180f;
+    --ochre:#d9a556;--line:rgba(255,235,200,.14);--shadow:0 10px 30px rgba(0,0,0,.5);--bg:#1b1916;
+  }
+}
+:root[data-theme="dark"]{
+  --panel:rgba(30,26,20,.92);--ink:#efe6d4;--muted:#b8a789;--accent:#7fae84;--accent-ink:#13180f;
+  --ochre:#d9a556;--line:rgba(255,235,200,.14);--shadow:0 10px 30px rgba(0,0,0,.5);--bg:#1b1916;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:'Alegreya Sans',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--ochre);outline-offset:2px}
+
+.top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 0;
+  display:flex;gap:10px;align-items:flex-start;justify-content:space-between;pointer-events:none;z-index:5}
+.brand{pointer-events:auto;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-radius:14px;padding:9px 14px 10px;box-shadow:var(--shadow);max-width:62vw}
+.brand h1{font-family:'Alegreya',Georgia,serif;font-weight:700;font-size:20px;line-height:1.1;margin:0;letter-spacing:.2px}
+.brand p{margin:2px 0 0;font-size:13px;color:var(--muted);line-height:1.25}
+.ctrls{display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:auto}
+.seg{display:flex;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-radius:999px;padding:3px;box-shadow:var(--shadow)}
+.seg button{border:0;background:transparent;padding:7px 12px;border-radius:999px;font-weight:700;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.pill{border:0;background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  padding:9px 14px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:var(--shadow)}
+#compass{width:42px;height:42px;border-radius:50%;background:var(--panel);box-shadow:var(--shadow);position:relative}
+#needle{position:absolute;inset:0;transition:none}
+#needle::before{content:"";position:absolute;left:50%;top:7px;width:0;height:0;transform:translateX(-50%);
+  border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:13px solid #a3342a}
+#needle::after{content:"";position:absolute;left:50%;bottom:7px;width:0;height:0;transform:translateX(-50%);
+  border-left:6px solid transparent;border-right:6px solid transparent;border-top:13px solid var(--muted)}
+#needle span{position:absolute;left:50%;top:-15px;transform:translateX(-50%);font-weight:700;font-size:12px;
+  color:var(--ink);text-shadow:0 0 3px var(--panel)}
+
+#card{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);margin:0 auto;max-width:560px;
+  background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:18px;
+  box-shadow:var(--shadow);padding:14px 16px 12px;z-index:5}
+.cardhead{display:flex;align-items:center;gap:10px}
+#stopNum{font-weight:700;color:var(--ochre);font-size:14px;min-width:38px}
+#stopTitle{font-family:'Alegreya',Georgia,serif;font-size:21px;line-height:1.15;margin:0;flex:1}
+#cardToggle{border:0;background:transparent;width:34px;height:34px;border-radius:50%;font-size:18px;color:var(--muted);flex:none}
+#cardToggle:hover{background:var(--line)}
+#stopText{font-size:15.5px;line-height:1.5;margin-top:6px;max-height:30vh;overflow:auto}
+#stopText p{margin:0 0 6px}
+#stopText .note{color:var(--muted);font-size:14px}
+#stopText ol{margin:2px 0 6px;padding-left:0;list-style:none}
+#stopText li{display:flex;gap:10px;padding:2px 0}
+#stopText li b{color:var(--ochre);min-width:38px}
+nav.tour{display:flex;align-items:center;gap:8px;margin-top:10px}
+nav.tour button{border:0;background:var(--line);padding:9px 14px;border-radius:12px;font-weight:700;font-size:15px}
+nav.tour button.primary{background:var(--accent);color:var(--accent-ink)}
+nav.tour button:disabled{opacity:.35;cursor:default}
+#dots{flex:1;display:flex;justify-content:center;gap:5px;flex-wrap:wrap}
+#dots button{width:9px;height:9px;padding:0;border-radius:50%;background:var(--line);border:0}
+#dots button.on{background:var(--ochre);transform:scale(1.25)}
+#card.min #stopText,#card.min nav.tour{display:none}
+#card.walk nav.tour{display:none}
+
+#joy{position:fixed;left:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 112px);width:118px;height:118px;border-radius:50%;
+  background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.55);display:none;z-index:6;touch-action:none}
+#knob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;
+  background:rgba(255,255,255,.75);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+body.walking #joy{display:block}
+body.walking.nojoy #joy{display:none}
+
+#loader{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:20;transition:opacity .6s}
+#loader div{font-family:'Alegreya',Georgia,serif;font-size:20px;color:var(--ink)}
+#loader.gone{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){#loader{transition:none}}
+@media (max-width:420px){.brand h1{font-size:18px}.brand p{font-size:12px}#stopTitle{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<header class="top">
+  <div class="brand">
+    <h1>Hrádek Bučovice</h1>
+    <p>Kalvárie (Hradisko), 2. pol. 13. až 14. století</p>
+  </div>
+  <div class="ctrls">
+    <div class="seg" id="eraSeg" role="group" aria-label="Období">
+      <button data-era="past" class="on">Kolem 1300</button>
+      <button data-era="today">Dnes</button>
+    </div>
+    <button id="modeBtn" class="pill">🚶 Projít se</button>
+    <div id="compass" aria-hidden="true"><div id="needle"><span>S</span></div></div>
+  </div>
+</header>
+
+<section id="card" aria-live="polite">
+  <div class="cardhead">
+    <span id="stopNum">1/9</span>
+    <h2 id="stopTitle">Hrádek na Kalvárii</h2>
+    <button id="cardToggle" aria-label="Sbalit popis">▾</button>
+  </div>
+  <div id="stopText"></div>
+  <nav class="tour">
+    <button id="prev">‹ Zpět</button>
+    <div id="dots"></div>
+    <button id="next" class="primary">Dál ›</button>
+  </nav>
+</section>
+
+<div id="joy"><div id="knob"></div></div>
+<div id="loader"><div>Stavím palisádu…</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+'use strict';
+const isTouch = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+const $ = s => document.querySelector(s);
+const D2R = Math.PI/180;
+
+/* ---------- random & noise ---------- */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+const rng = mulberry(1322);
+const rr = (a,b)=>a+(b-a)*rng();
+function hash(x,z){const s=Math.sin(x*127.1+z*311.7)*43758.5453;return s-Math.floor(s);}
+function vnoise(x,z){const xi=Math.floor(x),zi=Math.floor(z),xf=x-xi,zf=z-zi;const u=xf*xf*(3-2*xf),v=zf*zf*(3-2*zf);
+  const a=hash(xi,zi),b=hash(xi+1,zi),c=hash(xi,zi+1),d=hash(xi+1,zi+1);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;}
+function fbm(x,z){let f=0,a=.5,fr=1;for(let i=0;i<4;i++){f+=a*vnoise(x*fr,z*fr);fr*=2.03;a*=.5;}return f/.9375;}
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const ss=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
+
+/* ---------- site geometry (metres; north = -z, east = +x) ---------- */
+const GATE = 40;        // bearing of gate (access from N/NE)
+const PAL_R = 28;       // palisade on rampart crest
+const WALK_R = 26.6;
+function bxz(b,r){return [Math.sin(b*D2R)*r, -Math.cos(b*D2R)*r];}
+function bearingOf(x,z){let b=Math.atan2(x,-z)/D2R;return (b+360)%360;}
+function angDiff(a,b){let d=((a-b)%360+540)%360-180;return d;}
+
+function prof(r){
+  let h=18;
+  h+=1.2*ss(23,27.5,r)*(1-ss(29,32.5,r));   // rampart (val)
+  h-=5.0*ss(30.5,39,r);                     // ditch, ~23 m wide
+  h+=3.0*ss(46,53.5,r);                     // outer bank
+  h-=16*ss(56,175,r);                       // hill slope
+  return h;
+}
+function H(x,z){
+  const r=Math.hypot(x,z);
+  let h=prof(r);
+  const t=ss(60,220,r);
+  h-=t*z*0.035;                                       // terrain falls to the town in the south
+  h+=(fbm(x*.012+3,z*.012+7)-.5)*14*ss(70,200,r);     // rolling land
+  h+=(fbm(x*.18,z*.18)-.5)*.35*ss(5,20,r);            // micro relief
+  return h;
+}
+function pathDist(x,z,r){
+  if(r<54||r>300) return Infinity;
+  const b=GATE+(r-55)*0.28;
+  return Math.abs(angDiff(bearingOf(x,z),b))*D2R*r;
+}
+
+/* ---------- renderer / scene ---------- */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, isTouch?1.6:2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+$('#stage').appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+const HORIZON=0xdde5e6;
+scene.background=new THREE.Color(HORIZON);
+scene.fog=new THREE.Fog(HORIZON,260,1150);
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.25,3000);
+camera.position.set(-78,64,92);
+
+const hemi=new THREE.HemisphereLight(0xd6e6ff,0x5d5233,.72);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff0d2,1.0);
+sun.position.set(-110,150,90);sun.target.position.set(0,15,0);
+sun.castShadow=true;
+const SM=isTouch?1024:2048;sun.shadow.mapSize.set(SM,SM);
+Object.assign(sun.shadow.camera,{left:-72,right:72,top:72,bottom:-72,near:20,far:420});
+sun.shadow.bias=-.0006;sun.shadow.normalBias=.4;
+scene.add(sun);scene.add(sun.target);
+
+/* sky dome */
+{
+  const g=new THREE.SphereGeometry(2400,32,16);
+  const m=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
+    uniforms:{top:{value:new THREE.Color(0x5f93cf)},hor:{value:new THREE.Color(HORIZON)}},
+    vertexShader:'varying vec3 vP;void main(){vP=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader:'uniform vec3 top;uniform vec3 hor;varying vec3 vP;void main(){float h=clamp(vP.y,0.,1.);gl_FragColor=vec4(mix(hor,top,pow(h,.55)),1.);}'});
+  const sky=new THREE.Mesh(g,m);sky.renderOrder=-1;scene.add(sky);
+}
+
+/* ---------- procedural textures ---------- */
+function canvasTex(w,h,fn){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');fn(g,w,h);
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t;}
+function rep(t,x,y){const c=t.clone();c.needsUpdate=true;c.repeat.set(x,y);return c;}
+
+const woodTex=canvasTex(256,256,(g,w,h)=>{
+  for(let x=0;x<w;x+=32){const l=36+rng()*14;g.fillStyle=`hsl(32,${18+rng()*10}%,${l}%)`;g.fillRect(x,0,32,h);
+    for(let k=0;k<24;k++){g.strokeStyle=`rgba(40,24,10,${.07+rng()*.13})`;g.lineWidth=1;g.beginPath();const xx=x+rng()*32;
+      g.moveTo(xx,0);g.bezierCurveTo(xx+rr(-2,2),h*.33,xx+rr(-2,2),h*.66,xx+rr(-1.5,1.5),h);g.stroke();}
+    g.fillStyle='rgba(18,10,4,.55)';g.fillRect(x,0,2,h);
+    if(rng()<.5){g.fillStyle='rgba(30,18,8,.5)';g.beginPath();g.ellipse(x+rr(8,24),rr(20,230),2.5,4,0,0,7);g.fill();}}
+});
+const daubTex=canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle='#cdbb98';g.fillRect(0,0,w,h);
+  for(let i=0;i<2600;i++){g.fillStyle=`rgba(${rng()<.5?90:250},${rng()<.5?70:235},${rng()<.5?40:200},${rng()*.09})`;g.fillRect(rng()*w,rng()*h,rr(1,5),rr(1,5));}
+  for(let i=0;i<10;i++){g.strokeStyle='rgba(110,85,55,.25)';g.lineWidth=rr(1,3);g.beginPath();const y=rng()*h;g.moveTo(0,y);g.lineTo(w,y+rr(-20,20));g.stroke();}
+  g.fillStyle='#5a4128';[0,124,w-10].forEach(x=>g.fillRect(x,0,10,h));g.fillRect(0,0,w,9);g.fillRect(0,h-12,w,12);
+  g.fillStyle='rgba(30,20,10,.25)';[10,134].forEach(x=>g.fillRect(x,0,2,h));
+});
+const thatchTex=canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle='#8f7742';g.fillRect(0,0,w,h);
+  for(let i=0;i<5200;i++){const x=rng()*w,y=rng()*h,l=rr(8,22);const v=rng();
+    g.strokeStyle=v<.33?'rgba(60,45,20,.45)':v<.66?'rgba(185,160,100,.4)':'rgba(130,108,60,.5)';
+    g.lineWidth=rr(.6,1.6);g.beginPath();g.moveTo(x,y);g.lineTo(x+rr(-2,2),y+l);g.stroke();}
+  for(let y=0;y<h;y+=32){g.fillStyle='rgba(50,35,15,.18)';g.fillRect(0,y,w,3);}
+});
+const shingleTex=canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle='#4b4134';g.fillRect(0,0,w,h);
+  for(let y=0,row=0;y<h;y+=16,row++){let x=row%2?-9:0;
+    while(x<w){const sw=rr(12,20);const l=26+rng()*16;g.fillStyle=`hsl(${28+rng()*10},${10+rng()*10}%,${l}%)`;
+      g.fillRect(x+1,y+1,sw-2,15);g.fillStyle='rgba(0,0,0,.25)';g.fillRect(x+1,y+13,sw-2,3);x+=sw;}}
+});
+const stoneTex=canvasTex(256,128,(g,w,h)=>{
+  g.fillStyle='#6d6a62';g.fillRect(0,0,w,h);
+  for(let y=0,row=0;y<h;y+=18,row++){let x=row%2?-14:0;
+    while(x<w){const sw=rr(20,34);const l=42+rng()*16;g.fillStyle=`hsl(40,${4+rng()*6}%,${l}%)`;
+      g.beginPath();g.roundRect?g.roundRect(x+2,y+2,sw-3,15,4):g.rect(x+2,y+2,sw-3,15);g.fill();x+=sw;}}
+});
+const detailTex=canvasTex(128,128,(g,w,h)=>{
+  g.fillStyle='#e8e8e8';g.fillRect(0,0,w,h);
+  for(let i=0;i<1800;i++){const v=rng();g.fillStyle=v<.5?`rgba(0,0,0,${rng()*.14})`:`rgba(255,255,255,${rng()*.2})`;g.fillRect(rng()*w,rng()*h,rr(1,3),rr(1,3));}
+});
+function softTex(blobs){return canvasTex(128,128,(g,w,h)=>{
+  for(let i=0;i<blobs;i++){const x=blobs>1?rr(30,98):64,y=blobs>1?rr(45,85):64,r=blobs>1?rr(18,34):60;
+    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(255,255,255,.9)');gr.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=gr;g.fillRect(0,0,w,h);}});}
+const smokeTex=softTex(1), cloudTex=softTex(9);
+
+const L=(o)=>new THREE.MeshLambertMaterial(o);
+const M={
+  woodTower:L({map:rep(woodTex,2,2.5)}),
+  woodSmall:L({map:rep(woodTex,1,1)}),
+  log:L({map:rep(woodTex,1,1.4),color:0xd8d0c4}),
+  plank:L({map:rep(woodTex,1,1),color:0xc8bfb2}),
+  daub:L({map:rep(daubTex,1,1)}),
+  thatch:L({map:rep(thatchTex,.32,.32),side:THREE.DoubleSide}),
+  shingle:L({map:rep(shingleTex,3,2)}),
+  stone:L({map:rep(stoneTex,3,1)}),
+  dark:L({color:0x1d140c}),
+  water:new THREE.MeshPhongMaterial({color:0x4f6f78,shininess:80,specular:0x99aabb}),
+  hay:L({map:rep(thatchTex,1,1),color:0xe0c27a}),
+};
+
+/* ---------- terrain (polar mesh: dense near the fort, coarse far away) ---------- */
+const terrainColors={};
+let terrain;
+{
+  const N=210,A=288,RMAX=1300;
+  const vc=(N+1)*(A+1);
+  const pos=new Float32Array(vc*3),nor=new Float32Array(vc*3),uv=new Float32Array(vc*2),cP=new Float32Array(vc*3),cT=new Float32Array(vc*3);
+  const C=h=>new THREE.Color(h);
+  const DRY=C(0xa99a5c),DIRT=C(0x7c6343),EARTH=C(0x9c8866),PATH=C(0xa48f6c),tmp=new THREE.Color();
+  const FIELDS=[0x8a9a4a,0xb9a962,0x6f8a3e,0xc7b77a,0x7f7452,0x5f7d3a,0x9aa95a].map(C);
+  let k=0;
+  for(let i=0;i<=N;i++){
+    const r=RMAX*Math.pow(i/N,2.2);
+    for(let j=0;j<=A;j++){
+      const a=j/A*Math.PI*2, x=Math.sin(a)*r, z=-Math.cos(a)*r, y=H(x,z);
+      pos[k*3]=x;pos[k*3+1]=y;pos[k*3+2]=z;
+      const e=.6, dx=(H(x+e,z)-H(x-e,z))/(2*e), dz=(H(x,z+e)-H(x,z-e))/(2*e);
+      const nl=Math.hypot(dx,1,dz);nor[k*3]=-dx/nl;nor[k*3+1]=1/nl;nor[k*3+2]=-dz/nl;
+      uv[k*2]=x/5;uv[k*2+1]=z/5;
+      const n=fbm(x*.04,z*.04), n2=vnoise(x*.5+9,z*.5+2);
+      const g=new THREE.Color().setHSL(.2+n*.06,.36+n*.1,.27+n2*.06);
+      g.lerp(DRY,clamp((fbm(x*.02+20,z*.02-5)-.42)*1.5,0,.55));
+      const sl=Math.hypot(dx,dz);
+      g.lerp(DIRT,ss(.45,1.1,sl)*.5*(.6+n2*.4)*(r<70?1:.3));
+      if(r>230){const fx=x*.8+z*.6,fz=-x*.6+z*.8;const fc=FIELDS[Math.floor(hash(Math.floor(fx/70),Math.floor(fz/45))*FIELDS.length)];
+        tmp.copy(fc).multiplyScalar(.9+n2*.18);g.lerp(tmp,ss(230,300,r)*.9);}
+      const pd=pathDist(x,z,r);if(pd<2.6)g.lerp(PATH,(1-ss(1.2,2.6,pd))*.85);
+      cT[k*3]=g.r;cT[k*3+1]=g.g;cT[k*3+2]=g.b;
+      if(r<26){g.lerp(EARTH,(1-ss(14,25,r))*(.55+n2*.35));}
+      const lat=Math.abs(x*Math.cos(GATE*D2R)+z*Math.sin(GATE*D2R)), along=x*Math.sin(GATE*D2R)-z*Math.cos(GATE*D2R);
+      if(along>2&&along<31&&lat<2.4)g.lerp(PATH,(1-ss(1.2,2.4,lat))*.7);
+      cP[k*3]=g.r;cP[k*3+1]=g.g;cP[k*3+2]=g.b;
+      k++;
+    }
+  }
+  const idx=new Uint32Array(N*A*6);let q=0;
+  for(let i=0;i<N;i++)for(let j=0;j<A;j++){const a=i*(A+1)+j,b=a+1,c=a+A+1,d=c+1;idx[q++]=a;idx[q++]=b;idx[q++]=c;idx[q++]=b;idx[q++]=d;idx[q++]=c;}
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(cP),3));
+  geo.setIndex(new THREE.BufferAttribute(idx,1));
+  terrainColors.past=cP;terrainColors.today=cT;
+  const tm=L({vertexColors:true,map:detailTex});
+  terrain=new THREE.Mesh(geo,tm);terrain.receiveShadow=true;scene.add(terrain);
+}
+
+/* ---------- helpers ---------- */
+const fort=new THREE.Group(), today=new THREE.Group();
+scene.add(fort);scene.add(today);today.visible=false;
+const obstacles=[]; // oriented rectangles for walk mode
+function box(parent,w,h,d,mat,x,y,z,ry=0,shadow=true){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);m.rotation.y=ry;
+  m.castShadow=shadow;m.receiveShadow=true;parent.add(m);return m;}
+function pyramid(parent,half,h,mat,x,y,z,ry=0){
+  const g=new THREE.ConeGeometry(half*Math.SQRT2,h,4,1);g.rotateY(Math.PI/4);
+  const m=new THREE.Mesh(g,mat);m.position.set(x,y+h/2,z);m.rotation.y=ry;m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
+function addObstacle(x,z,rot,hx,hz,era='past'){obstacles.push({x,z,rot,hx,hz,era});}
+
+/* auto-oriented triangle soup -> geometry (normals point away from 'center') */
+function triGeo(tris,center,uvFn){
+  const p=[],u=[],a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),n=new THREE.Vector3(),cen=new THREE.Vector3();
+  for(const t of tris){a.fromArray(t[0]);b.fromArray(t[1]);c.fromArray(t[2]);
+    n.subVectors(b,a).cross(c.clone().sub(a));cen.copy(a).add(b).add(c).divideScalar(3).sub(center);
+    const order=n.dot(cen)<0?[t[0],t[2],t[1]]:t;
+    for(const v of order){p.push(...v);u.push(...uvFn(v,t));}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(u,2));g.computeVertexNormals();return g;}
+function hipRoofGeo(Lr,W,Hr,ov,ridge){
+  const l=Lr/2+ov,w=W/2+ov,rl=l*ridge;
+  const P=[[-l,0,-w],[l,0,-w],[l,0,w],[-l,0,w],[-rl,Hr,0],[rl,Hr,0]];
+  const tris=[[P[0],P[1],P[5]],[P[0],P[5],P[4]],[P[2],P[3],P[4]],[P[2],P[4],P[5]],[P[3],P[0],P[4]],[P[1],P[2],P[5]]];
+  return triGeo(tris,new THREE.Vector3(0,Hr*.3,0),(v,t)=>{const endFace=t.every(q=>Math.sign(q[0])===Math.sign(t[0][0]));
+    return [endFace?v[2]:v[0],v[1]*1.4];});
+}
+
+/* ---------- palisade ---------- */
+const TOWERS=[120,205,295];
+const GAP=1.5; // half-width of gate opening (m)
+function inGateGap(b,r){const lat=Math.abs(Math.sin((b-GATE)*D2R)*r);return lat<GAP+1.3&&Math.abs(angDiff(b,GATE))<30;}
+{
+  const logGeo=new THREE.CylinderGeometry(.19,.22,1,7);logGeo.translate(0,.5,0);
+  const tipGeo=new THREE.ConeGeometry(.2,.55,7);tipGeo.translate(0,.275,0);
+  const step=.42, n=Math.floor(2*Math.PI*PAL_R/step);
+  const logs=new THREE.InstancedMesh(logGeo,M.log,n), tips=new THREE.InstancedMesh(tipGeo,M.log,n);
+  const o=new THREE.Object3D();let c=0;
+  for(let i=0;i<n;i++){const b=i/n*360;if(inGateGap(b,PAL_R))continue;
+    const [x,z]=bxz(b,PAL_R);const y=H(x,z)-.7;const hgt=4.6+rr(-.25,.25);
+    o.position.set(x,y,z);o.rotation.set(rr(-.03,.03),rr(0,6),rr(-.03,.03));o.scale.set(1,hgt,1);o.updateMatrix();logs.setMatrixAt(c,o.matrix);
+    o.position.y=y+hgt;o.scale.set(1,1,1);o.updateMatrix();tips.setMatrixAt(c,o.matrix);c++;}
+  logs.count=tips.count=c;logs.castShadow=tips.castShadow=true;logs.receiveShadow=true;fort.add(logs,tips);
+
+  // wall-walk (ochoz) on posts, behind the palisade
+  const segGeo=new THREE.BoxGeometry(1,.14,1.5),postGeo=new THREE.CylinderGeometry(.11,.12,1,6);postGeo.translate(0,.5,0);
+  const ns=Math.floor(2*Math.PI*WALK_R/2.0);
+  const segs=new THREE.InstancedMesh(segGeo,M.plank,ns),posts=new THREE.InstancedMesh(postGeo,M.log,ns*2);
+  let sc=0,pc=0;
+  for(let i=0;i<ns;i++){const b=(i+.5)/ns*360;if(inGateGap(b,WALK_R)||Math.abs(angDiff(b,GATE))<9||TOWERS.some(t=>Math.abs(angDiff(b,t))<5.5))continue;
+    const [x,z]=bxz(b,WALK_R);const base=H(...bxz(b,PAL_R))+2.3;
+    o.position.set(x,base,z);o.rotation.set(0,-b*D2R,0);o.scale.set(2*Math.PI*WALK_R/ns+.05,1,1);o.updateMatrix();segs.setMatrixAt(sc++,o.matrix);
+    o.scale.set(1,1,1);
+    for(const rp of [WALK_R-.65,WALK_R+.6]){const [px,pz]=bxz(b,rp);const gy=H(px,pz)-.3;o.position.set(px,gy,pz);o.rotation.set(0,0,0);
+      o.scale.set(1,base-gy,1);o.updateMatrix();posts.setMatrixAt(pc++,o.matrix);o.scale.set(1,1,1);}}
+  segs.count=sc;posts.count=pc;segs.castShadow=posts.castShadow=true;segs.receiveShadow=true;fort.add(segs,posts);
+}
+
+/* ---------- towers ---------- */
+function windowsOn(g,w,y,h,z0){ // small dark slits on 4 faces
+  for(let s=0;s<4;s++){const a=s*Math.PI/2;const ox=Math.sin(a)*(w/2+.02),oz=Math.cos(a)*(w/2+.02);
+    for(const off of [-w*.22,w*.22]){const m=box(g,.45,.8,.06,M.dark,ox+Math.cos(a)*off,y,oz-Math.sin(a)*off,a,false);m.receiveShadow=false;}}}
+function cornerTower(b){
+  const [x,z]=bxz(b,PAL_R);const base=Math.min(H(x,z),H(...bxz(b,PAL_R-2)),H(...bxz(b,PAL_R+2)))-1;
+  const g=new THREE.Group();g.position.set(x,base,z);g.rotation.y=-b*D2R;fort.add(g);
+  const w=4.4,h=9.5;
+  box(g,w,h,w,M.woodTower,0,h/2,0);
+  box(g,w+1.1,2.4,w+1.1,M.woodSmall,0,h+1.2,0);
+  windowsOn(g,w+1.1,h+1.3,0,0);
+  pyramid(g,(w+1.1)/2+.55,4.2,M.shingle,0,h+2.4,0);
+  addObstacle(x,z,-b*D2R,w/2,w/2);
+}
+TOWERS.forEach(cornerTower);
+
+/* gate tower + bridge, built in a frame where local -z points outward along the gate bearing */
+const gateFrame=new THREE.Group();gateFrame.rotation.y=-GATE*D2R;fort.add(gateFrame);
+const gx=bxz(GATE,PAL_R), GATE_Y=H(gx[0],gx[1]);
+const BR0=30.6, BR1=55.5, BR_Y0=GATE_Y+.15, BR_Y1=H(...bxz(GATE,BR1))+.15;
+{
+  const g=new THREE.Group();g.position.set(0,GATE_Y-1,-PAL_R);gateFrame.add(g);
+  const w=5.8,d=5,h=9.2,side=(w-2*GAP)/2;
+  box(g,side,h,d,M.woodTower,-(GAP+side/2),h/2,0);
+  box(g,side,h,d,M.woodTower,(GAP+side/2),h/2,0);
+  box(g,2*GAP,h-4.6,d,M.woodTower,0,4.6+(h-4.6)/2,0);
+  box(g,w+1,2.4,d+1,M.woodSmall,0,h+1.2,0);
+  windowsOn(g,w+1,h+1.3);
+  pyramid(g,(w+1)/2+.6,4.4,M.shingle,0,h+2.4,0);
+  // open doors
+  const dg=new THREE.BoxGeometry(GAP,3.5,.14);dg.translate(GAP/2,1.75,0);
+  for(const s of [-1,1]){const dm=new THREE.Mesh(dg,M.plank);dm.position.set(s*GAP,1,d/2-.1);dm.rotation.y=s>0?Math.PI+1.3:-1.3;dm.castShadow=true;g.add(dm);}
+  // bridge deck
+  const len=BR1-BR0, mid=(BR0+BR1)/2, slope=Math.atan2(BR_Y0-BR_Y1,len);
+  const deck=box(gateFrame,2.6,.22,Math.hypot(len,BR_Y0-BR_Y1),M.plank,0,(BR_Y0+BR_Y1)/2,-mid);deck.rotation.x=-slope;
+  for(const s of [-1,1]){const rail=box(gateFrame,.14,.14,Math.hypot(len,BR_Y0-BR_Y1),M.log,s*1.25,(BR_Y0+BR_Y1)/2+1.05,-mid);rail.rotation.x=-slope;}
+  for(let a=BR0+1;a<=BR1-.5;a+=3.6){
+    const yy=BR_Y0+(BR_Y1-BR_Y0)*(a-BR0)/len;
+    const [wx,wz]=bxz(GATE,a);const gy=H(wx,wz)-.4;
+    for(const s of [-1,1]){box(gateFrame,.32,yy-gy,.32,M.log,s*1.15,gy+(yy-gy)/2,-a);box(gateFrame,.1,1.1,.1,M.log,s*1.25,yy+.55,-a,0,false);}
+    box(gateFrame,2.8,.22,.25,M.log,0,yy-.2,-a);
+  }
+}
+
+/* ---------- keep (no masonry was found -> timber & daub) ---------- */
+const KEEP=bxz(340,10);
+{
+  const [x,z]=KEEP;const base=H(x,z)-.8;const g=new THREE.Group();g.position.set(x,base,z);g.rotation.y=-340*D2R;fort.add(g);
+  box(g,7,8,7,M.daub,0,4,0);
+  box(g,8.2,6.4,8.2,M.woodTower,0,8+3.2,0);
+  for(const yy of [8.05]){box(g,8.4,.3,8.4,M.log,0,yy,0);}
+  windowsOn(g,8.2,11.5);windowsOn(g,7,5);
+  box(g,1.4,2.2,.12,M.dark,0,1.9,3.52,0,false);
+  pyramid(g,4.1+.6,6.2,M.shingle,0,14.4,0);
+  // flag
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.07,4,6),M.log);pole.position.set(0,20.4+2,0);g.add(pole);
+  const fg=new THREE.PlaneGeometry(2.6,1.4,14,4);fg.translate(1.3,0,0);
+  const flagTex=canvasTex(128,64,(c,w,h)=>{c.fillStyle='#8e2a22';c.fillRect(0,0,w,h);c.fillStyle='#e9dfc8';c.fillRect(0,h*.38,w,h*.24);});
+  const flag=new THREE.Mesh(fg,L({map:flagTex,side:THREE.DoubleSide}));flag.position.set(.05,23.6,0);flag.castShadow=true;g.add(flag);
+  window.__flag=flag;
+  addObstacle(x,z,-340*D2R,3.6,3.6);
+}
+
+/* ---------- houses ---------- */
+const smokeSources=[];
+function house(b,r,len,wid,opts={}){
+  const [x,z]=bxz(b,r);const ry=-b*D2R;
+  const ys=[[-len/2,-wid/2],[len/2,-wid/2],[len/2,wid/2],[-len/2,wid/2]].map(([lx,lz])=>H(x+lx*Math.cos(ry)+lz*Math.sin(ry),z-lx*Math.sin(ry)+lz*Math.cos(ry)));
+  const base=Math.min(...ys)-.4, wallH=opts.wallH||2.7, roofH=opts.roofH||3.6;
+  const g=new THREE.Group();g.position.set(x,base,z);g.rotation.y=ry;fort.add(g);
+  box(g,len,wallH,wid,opts.wood?M.woodSmall:M.daub,0,wallH/2,0);
+  const roof=new THREE.Mesh(hipRoofGeo(len,wid,roofH,.55,opts.ridge||.55),M.thatch);roof.position.y=wallH-.05;roof.castShadow=true;roof.receiveShadow=true;g.add(roof);
+  box(g,1.1,1.9,.08,M.dark,-len*.18,.95+.4,wid/2+.02,0,false);
+  if(len>8)box(g,.6,.5,.08,M.dark,len*.25,1.7,wid/2+.02,0,false);
+  if(opts.smoke){const v=new THREE.Vector3(len*.2,wallH+roofH-.2,0);g.updateMatrixWorld(true);smokeSources.push(g.localToWorld(v));}
+  addObstacle(x,z,ry,len/2+.3,wid/2+.3);
+  return g;
+}
+house(92,18.5,11,6,{smoke:true});
+house(132,18,8.5,5.5);
+house(175,19.2,12,6.5,{smoke:true,ridge:.65});
+house(228,18.6,8,5,{wood:true,wallH:2.4,roofH:3});
+house(262,18,10,6,{smoke:true});
+house(64,19.5,7,4.2,{wood:true,wallH:2.3,roofH:2.8,ridge:.4});
+house(312,19,6,4,{wood:true,wallH:2.2,roofH:2.6,ridge:.35});
+
+/* well (free reconstruction) */
+const WELL=bxz(160,4.5);
+{
+  const [x,z]=WELL;const y=H(x,z);const g=new THREE.Group();g.position.set(x,y,z);fort.add(g);
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(1.35,1.45,.95,18,1,true),M.stone);ring.position.y=.4;ring.castShadow=true;g.add(ring);
+  const inner=new THREE.Mesh(new THREE.CircleGeometry(1.3,18),M.dark);inner.rotation.x=-Math.PI/2;inner.position.y=.2;g.add(inner);
+  for(const s of [-1,1])box(g,.18,2.4,.18,M.log,s*1.25,1.2,0);
+  const bar=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,2.7,8),M.log);bar.rotation.z=Math.PI/2;bar.position.y=2.1;g.add(bar);
+  const rf=new THREE.Mesh(hipRoofGeo(2.6,1.6,.9,.15,1),M.shingle);rf.position.y=2.45;rf.castShadow=true;g.add(rf);
+  addObstacle(x,z,0,1.5,1.5);
+}
+
+/* props: haystacks, woodpiles, wattle fence */
+function haystack(b,r){const [x,z]=bxz(b,r);const y=H(x,z);
+  const c=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.8,1.6,12),M.hay);c.position.set(x,y+.8,z);c.castShadow=true;fort.add(c);
+  const t=new THREE.Mesh(new THREE.ConeGeometry(1.7,2.2,12),M.hay);t.position.set(x,y+2.7,z);t.castShadow=true;fort.add(t);
+  addObstacle(x,z,0,1.8,1.8);}
+haystack(72,12.5);haystack(246,12);haystack(252,8.5);
+function woodpile(b,r){const [x,z]=bxz(b,r);const y=H(x,z);const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=-b*D2R;fort.add(g);
+  const lg=new THREE.CylinderGeometry(.16,.16,2.2,6);lg.rotateZ(Math.PI/2);
+  for(let row=0;row<4;row++)for(let i=0;i<6-row;i++){const m=new THREE.Mesh(lg,M.log);m.position.set(0,.16+row*.28,(i-(5-row)/2)*.33);m.castShadow=true;g.add(m);}
+  addObstacle(x,z,-b*D2R,1.2,1.1);}
+woodpile(110,14.5);woodpile(200,15.5);
+{ // wattle garden fence
+  const [cx,cz]=bxz(205,13);const fg=new THREE.CylinderGeometry(.05,.05,1,5);fg.translate(0,.5,0);
+  const n=34,im=new THREE.InstancedMesh(fg,M.log,n),o=new THREE.Object3D();
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2;const x=cx+Math.cos(a)*3.2,z=cz+Math.sin(a)*2.4;o.position.set(x,H(x,z)-.1,z);o.scale.set(1,1.1,1);o.updateMatrix();im.setMatrixAt(i,o.matrix);}
+  fort.add(im);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(1,1,.55,34,1,true),L({map:rep(woodTex,6,.4),color:0x9e8a6c,side:THREE.DoubleSide}));
+  band.scale.set(3.2,1,2.4);band.position.set(cx,H(cx,cz)+.55,cz);band.castShadow=true;fort.add(band);
+  const bed=new THREE.Mesh(new THREE.CircleGeometry(1,24),L({color:0x5d4a2e}));bed.rotation.x=-Math.PI/2;bed.scale.set(3.1,2.3,1);bed.position.set(cx,H(cx,cz)+.05,cz);fort.add(bed);
+  addObstacle(cx,cz,0,3.3,2.5);
+}
+
+/* ---------- people ---------- */
+const people=[];
+function person(color){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.2,.3,1.2,8),L({color}));body.position.y=.75;body.castShadow=true;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.16,10,8),L({color:0xd9b08c}));head.position.y=1.52;head.castShadow=true;g.add(head);
+  const hood=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8,0,Math.PI*2,0,Math.PI/2),L({color:0x5a4630}));hood.position.y=1.56;g.add(hood);
+  fort.add(g);return g;}
+function randomYardPoint(){for(let i=0;i<40;i++){const b=rr(0,360),r=rr(2,14);const [x,z]=bxz(b,r);
+  if(Math.hypot(x-KEEP[0],z-KEEP[1])<6||Math.hypot(x-WELL[0],z-WELL[1])<2.4)continue;return [x,z];}return [0,6];}
+[0x6b5a3c,0x7a3b2b,0x4f5a3a,0x8a7a5a,0x3e4a5a].forEach(c=>{const p=person(c);const s=randomYardPoint();
+  p.position.set(s[0],H(...s),s[1]);people.push({m:p,to:randomYardPoint(),wait:rr(0,3),speed:rr(.8,1.3)});});
+const guard=person(0x4a3a2a);
+{const sp=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,2.4,4),M.log);sp.position.set(.32,1.3,0);guard.add(sp);}
+let guardAng=200;
+
+/* ---------- smoke ---------- */
+const smoke=[];
+{const mat=new THREE.SpriteMaterial({map:smokeTex,color:0xd9d6d0,transparent:true,depthWrite:false,opacity:.3});
+ smokeSources.forEach((s,si)=>{for(let i=0;i<14;i++){const sp=new THREE.Sprite(mat.clone());fort.add(sp);smoke.push({sp,src:s,ph:i/14+si*.13});}});}
+
+/* ---------- trees, bushes, grass ---------- */
+const treeGroups={past:[],today:[]};
+{
+  const folGeo=new THREE.IcosahedronGeometry(1,1),trunkGeo=new THREE.CylinderGeometry(.18,.28,1,6),conGeo=new THREE.ConeGeometry(1,1,7);
+  trunkGeo.translate(0,.5,0);conGeo.translate(0,.5,0);
+  const MAXT=950;
+  const fol=new THREE.InstancedMesh(folGeo,L({color:0xffffff}),MAXT*2),trunks=new THREE.InstancedMesh(trunkGeo,L({color:0x5a4430}),MAXT),cons=new THREE.InstancedMesh(conGeo,L({color:0xffffff}),MAXT);
+  const o=new THREE.Object3D(),col=new THREE.Color();let fc=0,tc=0,cc=0,placed=0;
+  const TOWN=bxz(175,360);
+  for(let att=0;att<9000&&placed<MAXT;att++){
+    const r=60+Math.pow(rng(),1.4)*640, b=rr(0,360);const [x,z]=bxz(b,r);
+    if(pathDist(x,z,r)<5)continue;
+    if(Math.hypot(x-TOWN[0],(z-TOWN[1])*1.3)<165)continue;
+    const dens=fbm(x*.008+11,z*.008-4);
+    const pr=r<250?ss(.38,.62,dens):ss(.55,.7,dens)*.7;
+    if(rng()>pr)continue;
+    const y=H(x,z), s=rr(.8,1.35);
+    o.rotation.set(0,rr(0,6),0);
+    o.position.set(x,y-.3,z);o.scale.set(s,s*rr(2.6,3.6),s);o.updateMatrix();trunks.setMatrixAt(tc++,o.matrix);
+    if(rng()<.28){o.position.set(x,y+1.2*s,z);o.scale.set(2.3*s,8*s,2.3*s);o.updateMatrix();cons.setMatrixAt(cc,o.matrix);
+      cons.setColorAt(cc++,col.setHSL(.3+rr(-.02,.02),.3,.2+rr(0,.06)));}
+    else{const fs=rr(2.6,3.8)*s;for(let k=0;k<2;k++){o.position.set(x+rr(-.8,.8),y+3.4*s+k*1.2*s,z+rr(-.8,.8));o.scale.set(fs*(k?.8:1),fs*.82*(k?.8:1),fs*(k?.8:1));o.updateMatrix();
+      fol.setMatrixAt(fc,o.matrix);fol.setColorAt(fc++,col.setHSL(.22+rr(-.03,.05),.38+rr(0,.15),.24+rr(0,.08)));}}
+    placed++;
+  }
+  // bushes on slopes & in the ditch
+  for(let i=0;i<70;i++){const r=rr(33,95),b=rr(0,360);const [x,z]=bxz(b,r);if(pathDist(x,z,r)<4||Math.abs(angDiff(b,GATE))<6&&r<57)continue;
+    const fs=rr(.9,2.1);o.position.set(x,H(x,z)+fs*.4,z);o.scale.set(fs*1.2,fs*.8,fs*1.2);o.rotation.set(0,rr(0,6),0);o.updateMatrix();
+    fol.setMatrixAt(fc,o.matrix);fol.setColorAt(fc++,col.setHSL(.24+rr(-.03,.04),.35,.22+rr(0,.07)));}
+  fol.count=fc;trunks.count=tc;cons.count=cc;
+  [fol,trunks,cons].forEach(m=>{m.castShadow=true;m.receiveShadow=true;scene.add(m);});
+  fol.instanceColor.needsUpdate=true;if(cons.instanceColor)cons.instanceColor.needsUpdate=true;
+
+  // grass tufts
+  const tg=new THREE.ConeGeometry(.22,.75,3);tg.translate(0,.3,0);
+  const NT=isTouch?1800:3200,grass=new THREE.InstancedMesh(tg,L({color:0xffffff}),NT);let gc=0;
+  for(let i=0;i<NT*3&&gc<NT;i++){const r=rr(29,120),b=rr(0,360);const [x,z]=bxz(b,r);if(pathDist(x,z,r)<2)continue;
+    o.position.set(x,H(x,z)-.05,z);const s=rr(.7,1.5);o.scale.set(s,s*rr(.8,1.4),s);o.rotation.set(rr(-.15,.15),rr(0,6),rr(-.15,.15));o.updateMatrix();
+    grass.setMatrixAt(gc,o.matrix);grass.setColorAt(gc++,col.setHSL(.19+rr(0,.07),.35+rr(0,.15),.25+rr(0,.12)));}
+  grass.count=gc;grass.instanceColor.needsUpdate=true;grass.receiveShadow=true;scene.add(grass);
+}
+
+/* ---------- town / village to the south ---------- */
+const town={};
+{
+  const C=bxz(175,360);const pts=[];
+  for(let i=0;i<4000&&pts.length<150;i++){const a=rr(0,Math.PI*2),d=Math.sqrt(rng());const x=C[0]+Math.cos(a)*d*150,z=C[1]+Math.sin(a)*d*105;
+    if(pts.some(p=>Math.hypot(p[0]-x,p[1]-z)<12))continue;pts.push([x,z]);}
+  const wallG=new THREE.BoxGeometry(1,1,1);wallG.translate(0,.5,0);
+  const roofG=new THREE.ConeGeometry(Math.SQRT1_2,1,4);roofG.rotateY(Math.PI/4);roofG.translate(0,.5,0);
+  const walls=new THREE.InstancedMesh(wallG,L({color:0xffffff}),pts.length),roofs=new THREE.InstancedMesh(roofG,L({color:0xffffff}),pts.length);
+  const o=new THREE.Object3D(),col=new THREE.Color();
+  const cols={past:{w:[],r:[]},today:{w:[],r:[]}};
+  pts.forEach(([x,z],i)=>{const w=rr(6,10),d=rr(5,7),h=rr(3,4.2),ry=Math.round(rr(0,3))*Math.PI/2+rr(-.15,.15),y=H(x,z)-.5;
+    o.rotation.set(0,ry,0);o.position.set(x,y,z);o.scale.set(w,h+.5,d);o.updateMatrix();walls.setMatrixAt(i,o.matrix);
+    o.position.set(x,y+h+.5,z);o.scale.set(w+1,rr(3,4.5),d+1);o.updateMatrix();roofs.setMatrixAt(i,o.matrix);
+    cols.today.w.push(col.setHSL(.1,.15,.82+rr(0,.1)).clone());cols.today.r.push(col.setHSL(.03+rr(0,.03),.55,.38+rr(0,.1)).clone());
+    cols.past.w.push(col.setHSL(.09,.25,.6+rr(0,.1)).clone());cols.past.r.push(col.setHSL(.11,.35,.4+rr(0,.1)).clone());});
+  walls.castShadow=false;scene.add(walls,roofs);
+  town.walls=walls;town.roofs=roofs;town.cols=cols;
+  // church
+  const cx=C[0]+18,cz=C[1]-10,cy=H(cx,cz)-.5;const g=new THREE.Group();g.position.set(cx,cy,cz);scene.add(g);
+  const wm=L({color:0xeee8dc});box(g,9,9,22,wm,0,4.5,0,0,false);
+  const nr=new THREE.Mesh(hipRoofGeo(22,9,5,.4,.85),L({color:0x8a4a32}));nr.rotation.y=Math.PI/2;nr.position.y=9;g.add(nr);
+  box(g,6,24,6,wm,0,12,-13,0,false);
+  const sp=new THREE.Mesh(new THREE.ConeGeometry(3.6,12,8),L({color:0x3b3f44}));sp.position.set(0,30,-13);g.add(sp);
+  town.church=g;
+}
+
+/* ---------- today: water tank, park trees ---------- */
+{
+  const y=H(0,0);
+  const tank=new THREE.Mesh(new THREE.CylinderGeometry(5,5.2,1.5,40,1,true),M.stone);tank.position.set(0,y+.6,0);tank.castShadow=true;tank.receiveShadow=true;today.add(tank);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(5.05,.22,6,40),L({color:0x8a857a}));rim.rotation.x=Math.PI/2;rim.position.set(0,y+1.35,0);today.add(rim);
+  const w=new THREE.Mesh(new THREE.CircleGeometry(4.9,40),M.water);w.rotation.x=-Math.PI/2;w.position.set(0,y+1.05,0);today.add(w);
+  addObstacle(0,0,0,5.4,5.4,'today');
+  const fg=new THREE.IcosahedronGeometry(1,1),tg=new THREE.CylinderGeometry(.35,.5,1,7);tg.translate(0,.5,0);
+  for(let i=0;i<16;i++){const b=i/16*360+rr(-8,8),r=rr(17,25);const [x,z]=bxz(b,r);const gy=H(x,z);
+    const t=new THREE.Mesh(tg,L({color:0x55402c}));t.scale.set(1,rr(5,7),1);t.position.set(x,gy-.2,z);t.castShadow=true;today.add(t);
+    const f=new THREE.Mesh(fg,L({color:new THREE.Color().setHSL(.24+rr(-.03,.03),.35,.25+rr(0,.06))}));const s=rr(4,5.5);f.scale.set(s,s*.85,s);f.position.set(x,gy+t.scale.y+s*.4,z);f.castShadow=true;f.receiveShadow=true;today.add(f);
+    addObstacle(x,z,0,.6,.6,'today');}
+  for(const b of [100,230]){const [x,z]=bxz(b,11);const g=new THREE.Group();g.position.set(x,H(x,z),z);g.rotation.y=-b*D2R;today.add(g);
+    box(g,1.8,.08,.45,M.plank,0,.45,0);box(g,1.8,.4,.06,M.plank,0,.75,-.22);for(const s of [-.8,.8])box(g,.08,.45,.4,M.dark,s,.22,0);}
+}
+
+/* ---------- clouds ---------- */
+const clouds=[];
+for(let i=0;i<26;i++){const m=new THREE.SpriteMaterial({map:cloudTex,transparent:true,depthWrite:false,fog:false,opacity:rr(.55,.85)});
+  const s=new THREE.Sprite(m);const a=rr(0,Math.PI*2),d=rr(250,1100);s.position.set(Math.cos(a)*d,rr(230,380),Math.sin(a)*d);
+  const sc=rr(160,320);s.scale.set(sc,sc*.45,1);scene.add(s);clouds.push(s);}
+
+/* ---------- controls ---------- */
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=.08;
+controls.maxPolarAngle=1.47;controls.minDistance=6;controls.maxDistance=520;
+controls.target.set(0,17,-4);controls.screenSpacePanning=false;
+let fly=null;
+controls.addEventListener('start',()=>{fly=null;});
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const P=(b,r,dy)=>{const [x,z]=bxz(b,r);return V(x,H(x,z)+dy,z);};
+function flyTo(p,t,dur){
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+  fly={p0:camera.position.clone(),t0:controls.target.clone(),p1:p,t1:t,s:performance.now(),d:reduce?1:(dur||2300),lift:Math.min(40,camera.position.distanceTo(p)*.18)};}
+
+/* ---------- tour content ---------- */
+const STOPS=[
+ {t:'Hrádek na Kalvárii',p:V(-78,64,92),g:V(0,17,-4),era:'past',
+  h:'<p>Okrouhlý hrádek stával na vyvýšenině severně nad městem, v místě zvaném Kalvárie neboli Hradisko. Vznikl ve druhé polovině 13. století a zanikl už během 14. století.</p><p class="note">Vidíš hypotetickou rekonstrukci podle archeologického popisu. Táhni prstem pro otáčení, dvěma prsty přibližuj.</p>'},
+ {t:'Okružní příkop',p:P(240,57,5),g:P(272,33,1),era:'past',
+  h:'<p>Příkop byl mimořádně mohutný: i dnes je 22 až 24 m široký a až 5 m hluboký. Náznaky valu a úvozu na západě naznačují, že za ním mohl být ještě druhý příkop, sbíhající do strže.</p>'},
+ {t:'Val a palisáda',p:P(214,WALK_R,4.1),g:P(252,WALK_R,3.4),era:'past',
+  h:'<p>Nad příkopem se zvedal hliněný val nesoucí dřevěnou hradbu. Výkopy nikde nezjistily zdivo, opevnění bylo celé dřevohlinité. Stojíš na ochozu pro obránce za palisádou.</p><p class="note">Dnešní 4 až 6 m široký ochoz na valu vznikl až srovnáním jeho koruny při parkových úpravách.</p>'},
+ {t:'Brána a most',p:P(46,72,3.2),g:P(GATE,30,3.6),era:'past',
+  h:'<p>Původní vstup se spolehlivě určit nedá. Přístupová cesta však vedla od severu nebo severovýchodu, proto je brána s mostem přes příkop umístěna na této straně.</p>'},
+ {t:'Centrální plošina',p:P(170,14,22),g:V(0,18,-2),era:'past',
+  h:'<p>Téměř kruhová plošina měří v průměru 53 až 57 m. Uvnitř stála obytná a hospodářská stavení. Celá chráněná plocha lokality má 14 667 m².</p><p class="note">Studna uprostřed a rozmístění budov jsou volnou rekonstrukcí.</p>'},
+ {t:'Jak se stavělo',p:P(150,7,1.7),g:P(132,18,2.4),era:'past',
+  h:'<p>Archeologický výzkum v roce 1940 doložil trámové a kůlové konstrukce. Stěny se vyplétaly proutím a omazávaly mazanicí, tedy hlínou se slámou. Došková střecha vychází z dobových analogií.</p>'},
+ {t:'Hlavní věž',p:P(195,5,1.6),g:P(340,10,10),era:'past',
+  h:'<p>Zděná věž tu nejspíš nestála, protože žádné zdivo se nenašlo. Proto je i hlavní věž rekonstruována jako dřevěná stavba s přízemím z mazanice. Její existence ani podoba doložená není.</p>'},
+ {t:'Páni z Bučovic',p:V(-55,95,-165),g:V(10,8,70),era:'past',
+  h:'<ol><li><b>1322</b><span>První zmínka: Vok z Bučovic. Zakladatelem mohl být už jeho otec Jan z Benešova, purkrabí jemnický.</span></li><li><b>po 1350</b><span>Bučovice drží bratři Čeněk a Rudolf z Bučovic, pak Čeňkovi synové.</span></li><li><b>1369</b><span>Herard postoupil tvrz a městečko Bočkovi z Kunštátu a Poděbrad.</span></li><li><b>1389</b><span>Prodej Ondřeji z Bludova a Nechvalína.</span></li><li><b>1406</b><span>Po násilném obsazení Janem Puškou z Kunštátu dobyl tvrz Valentin z Majetína. O tři roky později tu opět sídlil Čeněk.</span></li></ol><p class="note">Hrádek zanikl brzy; tvrz z 15. století stála patrně u původního kostela.</p>'},
+ {t:'Hradisko dnes',p:V(72,48,-78),g:V(0,17,0),era:'today',
+  h:'<p>V roce 1884 přeměnil kníže Jan z Liechtenštejna holý svah v park. Zbyl upravený plochý pahorek a severozápadní polovina příkopu s valem, jižní úsek byl odkopán. Vyhlídkový pavilon zanikl, na plošině je dnes kamenná nádrž na vodu.</p><p class="note">Terén v modelu ukazuje celý okruh příkopu, skutečně se dochovala jen jeho část.</p>'}
+];
+let cur=0;
+const dots=$('#dots');
+STOPS.forEach((s,i)=>{const b=document.createElement('button');b.setAttribute('aria-label',s.t);b.onclick=()=>go(i);dots.appendChild(b);});
+function go(i){
+  if(walking)setWalk(false);
+  cur=clamp(i,0,STOPS.length-1);const s=STOPS[cur];
+  $('#stopNum').textContent=(cur+1)+'/'+STOPS.length;$('#stopTitle').textContent=s.t;$('#stopText').innerHTML=s.h;$('#stopText').scrollTop=0;
+  [...dots.children].forEach((d,k)=>d.classList.toggle('on',k===cur));
+  $('#prev').disabled=cur===0;$('#next').textContent=cur===STOPS.length-1?'Znovu ↺':'Dál ›';
+  setEra(s.era);flyTo(s.p.clone(),s.g.clone());
+}
+$('#prev').onclick=()=>go(cur-1);
+$('#next').onclick=()=>go(cur===STOPS.length-1?0:cur+1);
+$('#cardToggle').onclick=()=>{const m=$('#card').classList.toggle('min');$('#cardToggle').textContent=m?'▴':'▾';$('#cardToggle').setAttribute('aria-label',m?'Rozbalit popis':'Sbalit popis');};
+
+/* ---------- era switch ---------- */
+let era='past';
+function setEra(e){
+  if(e===era)return;era=e;
+  fort.visible=e==='past';today.visible=e==='today';guard.visible=e==='past';
+  terrain.geometry.attributes.color.array.set(terrainColors[e]);terrain.geometry.attributes.color.needsUpdate=true;
+  town.cols[e].w.forEach((c,i)=>town.walls.setColorAt(i,c));town.cols[e].r.forEach((c,i)=>town.roofs.setColorAt(i,c));
+  town.walls.instanceColor.needsUpdate=town.roofs.instanceColor.needsUpdate=true;
+  document.querySelectorAll('#eraSeg button').forEach(b=>b.classList.toggle('on',b.dataset.era===e));
+}
+// initialise town colours
+town.cols.past.w.forEach((c,i)=>town.walls.setColorAt(i,c));town.cols.past.r.forEach((c,i)=>town.roofs.setColorAt(i,c));
+document.querySelectorAll('#eraSeg button').forEach(b=>b.onclick=()=>setEra(b.dataset.era));
+
+/* ---------- walk mode ---------- */
+let walking=false,yaw=0,pitch=0;const walker=new THREE.Vector3();
+const keys={};const joy={x:0,y:0,id:null};
+function eyeY(x,z){
+  const along=x*Math.sin(GATE*D2R)-z*Math.cos(GATE*D2R),lat=x*Math.cos(GATE*D2R)+z*Math.sin(GATE*D2R);
+  let g=H(x,z);
+  if(Math.abs(lat)<1.35&&along>BR0-.4&&along<BR1){g=Math.max(g,BR_Y0+(BR_Y1-BR_Y0)*(along-BR0)/(BR1-BR0)+.1);}
+  if(era==='past'&&Math.abs(Math.hypot(x,z)-WALK_R)<.75){const b=bearingOf(x,z);if(!(Math.abs(angDiff(b,GATE))<9||TOWERS.some(t=>Math.abs(angDiff(b,t))<5.5)))g=Math.max(g,H(...bxz(b,PAL_R))+2.37);}
+  return g+1.65;}
+function blocked(x0,z0,x1,z1){
+  if(Math.hypot(x1,z1)>700)return true;
+  if(era!=='past')return false;
+  const r1=Math.hypot(x1,z1),along=x1*Math.sin(GATE*D2R)-z1*Math.cos(GATE*D2R),lat=Math.abs(x1*Math.cos(GATE*D2R)+z1*Math.sin(GATE*D2R));
+  const gateOpen=lat<GAP-.35&&along>0;
+  if(Math.abs(r1-PAL_R)<.7&&!gateOpen)return true;
+  if(along>0&&r1>PAL_R-2.6&&r1<PAL_R+2.6&&lat>GAP-.35&&lat<GAP+1.6)return true;
+  return false;}
+function pushOut(p){
+  for(const o of obstacles){if(o.era!==era)continue;const dx=p.x-o.x,dz=p.z-o.z,c=Math.cos(o.rot),s=Math.sin(o.rot);
+    let lx=dx*c-dz*s,lz=dx*s+dz*c;const m=.35,ex=o.hx+m,ez=o.hz+m;
+    if(Math.abs(lx)<ex&&Math.abs(lz)<ez){if(ex-Math.abs(lx)<ez-Math.abs(lz))lx=Math.sign(lx||1)*ex;else lz=Math.sign(lz||1)*ez;
+      p.x=o.x+lx*c+lz*s;p.z=o.z-lx*s+lz*c;}}}
+const WALK_HINT=isTouch?'<p>Joystickem vlevo dole chodíš, tažením prstu kdekoli jinde se rozhlížíš. Přes most se dostaneš branou dovnitř.</p>':'<p>Chůze: W A S D nebo šipky (Shift = rychleji). Rozhlížení: táhni myší. Přes most se dostaneš branou dovnitř.</p>';
+function setWalk(on){
+  walking=on;document.body.classList.toggle('walking',on);controls.enabled=!on;fly=null;
+  $('#modeBtn').textContent=on?'🎥 Prohlídka':'🚶 Projít se';
+  $('#card').classList.toggle('walk',on);
+  if(on){
+    const [x,z]=bxz(GATE,66);walker.set(x,0,z);yaw=Math.PI-GATE*D2R;pitch=0.02;
+    $('#stopNum').textContent='🚶';$('#stopTitle').textContent='Procházka';$('#stopText').innerHTML=WALK_HINT;
+  }else{
+    const f=V(-Math.sin(yaw),0,-Math.cos(yaw));controls.target.copy(camera.position).addScaledVector(f,12);
+    controls.target.y=camera.position.y-1.5;controls.update();
+  }
+}
+$('#modeBtn').onclick=()=>{if(walking)go(cur);else setWalk(true);};
+addEventListener('keydown',e=>{keys[e.code]=true;});addEventListener('keyup',e=>{keys[e.code]=false;});
+// look drag
+let look=null;
+renderer.domElement.addEventListener('pointerdown',e=>{if(!walking)return;look={id:e.pointerId,x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointermove',e=>{if(!walking||!look||look.id!==e.pointerId)return;
+  const k=isTouch?.0055:.0042;yaw-=(e.clientX-look.x)*k;pitch=clamp(pitch-(e.clientY-look.y)*k,-1.2,1.2);look.x=e.clientX;look.y=e.clientY;});
+const endLook=e=>{if(look&&look.id===e.pointerId)look=null;};
+renderer.domElement.addEventListener('pointerup',endLook);renderer.domElement.addEventListener('pointercancel',endLook);
+// joystick
+const joyEl=$('#joy'),knob=$('#knob');
+joyEl.addEventListener('pointerdown',e=>{joy.id=e.pointerId;joyEl.setPointerCapture(e.pointerId);joyMove(e);});
+joyEl.addEventListener('pointermove',e=>{if(joy.id===e.pointerId)joyMove(e);});
+const joyEnd=e=>{if(joy.id!==e.pointerId)return;joy.id=null;joy.x=joy.y=0;knob.style.transform='';};
+joyEl.addEventListener('pointerup',joyEnd);joyEl.addEventListener('pointercancel',joyEnd);
+function joyMove(e){const r=joyEl.getBoundingClientRect();let dx=(e.clientX-r.left-r.width/2)/(r.width/2),dy=(e.clientY-r.top-r.height/2)/(r.height/2);
+  const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l;}joy.x=dx;joy.y=dy;knob.style.transform=`translate(${dx*34}px,${dy*34}px)`;}
+if(!isTouch)document.body.classList.add('nojoy');
+
+/* ---------- loop ---------- */
+const needle=$('#needle');
+let last=performance.now(),time=0;
+const tmpV=new THREE.Vector3();
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;
+
+  if(fly){const k=clamp((now-fly.s)/fly.d,0,1),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+    camera.position.lerpVectors(fly.p0,fly.p1,e);camera.position.y+=Math.sin(Math.PI*e)*fly.lift;
+    controls.target.lerpVectors(fly.t0,fly.t1,e);if(k>=1)fly=null;}
+
+  if(walking){
+    let fwd=0,str=0;
+    if(keys.KeyW||keys.ArrowUp)fwd+=1;if(keys.KeyS||keys.ArrowDown)fwd-=1;if(keys.KeyD)str+=1;if(keys.KeyA)str-=1;
+    if(keys.ArrowLeft)yaw+=1.8*dt;if(keys.ArrowRight)yaw-=1.8*dt;
+    fwd-=joy.y;str+=joy.x;
+    const sp=(keys.ShiftLeft||keys.ShiftRight)?9:4.2;
+    const fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);
+    const nx=walker.x+(fx*fwd+rx*str)*sp*dt,nz=walker.z+(fz*fwd+rz*str)*sp*dt;
+    if(!blocked(walker.x,walker.z,nx,nz)){walker.x=nx;walker.z=nz;}
+    else if(!blocked(walker.x,walker.z,nx,walker.z))walker.x=nx;
+    else if(!blocked(walker.x,walker.z,walker.x,nz))walker.z=nz;
+    pushOut(walker);
+    const ty=eyeY(walker.x,walker.z);walker.y=walker.y?walker.y+(ty-walker.y)*Math.min(1,dt*10):ty;
+    if(Math.abs(walker.y-ty)>3)walker.y=ty;
+    camera.position.copy(walker);camera.position.y+=Math.sin(time*9)*.03*Math.min(1,Math.abs(fwd)+Math.abs(str));
+    camera.rotation.set(pitch,yaw,0,'YXZ');
+  }else controls.update();
+
+  // people
+  if(fort.visible){
+    for(const p of people){
+      if(p.wait>0){p.wait-=dt;continue;}
+      const dx=p.to[0]-p.m.position.x,dz=p.to[1]-p.m.position.z,d=Math.hypot(dx,dz);
+      if(d<.2){p.to=randomYardPoint();p.wait=rr(1,5);continue;}
+      const s=Math.min(d,p.speed*dt);p.m.position.x+=dx/d*s;p.m.position.z+=dz/d*s;
+      p.m.position.y=H(p.m.position.x,p.m.position.z)+Math.abs(Math.sin(time*7+p.speed*10))*.05;
+      p.m.rotation.y=Math.atan2(dx,dz);
+    }
+    guardAng=(guardAng+dt*1.6)%360;if(Math.abs(angDiff(guardAng,GATE))<10)guardAng=(GATE+10)%360;
+    const [gx2,gz2]=bxz(guardAng,WALK_R);guard.position.set(gx2,H(...bxz(guardAng,PAL_R))+2.37,gz2);guard.rotation.y=Math.PI/2-guardAng*D2R;
+    for(const s of smoke){const t=(time*.09+s.ph)%1;s.sp.position.set(s.src.x+t*7+Math.sin(t*6+s.ph*9)*.6,s.src.y+t*10,s.src.z+t*2.5);
+      const sc=1+t*5;s.sp.scale.set(sc,sc,1);s.sp.material.opacity=.32*(1-t)*Math.min(1,t*6);}
+    const f=window.__flag;if(f){const pa=f.geometry.attributes.position;
+      for(let i=0;i<pa.count;i++){const x=pa.getX(i);pa.setZ(i,Math.sin(x*2.3-time*5)*.16*(x/2.6)+Math.sin(x*4.1-time*7.3)*.04*x);}pa.needsUpdate=true;}
+  }
+  for(const c of clouds){c.position.x+=dt*3;if(c.position.x>1200)c.position.x=-1200;}
+
+  // compass
+  if(walking){tmpV.set(-Math.sin(yaw),0,-Math.cos(yaw));}else{tmpV.subVectors(controls.target,camera.position);}
+  const bear=Math.atan2(tmpV.x,-tmpV.z)/D2R;needle.style.transform=`rotate(${-bear}deg)`;
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+go(0);
+camera.position.copy(STOPS[0].p).add(V(-40,30,50));
+flyTo(STOPS[0].p.clone(),STOPS[0].g.clone(),2600);
+requestAnimationFrame(t=>{last=t;frame(t);setTimeout(()=>$('#loader').classList.add('gone'),150);});
+})();
+</script>
+</body>
+</html>
